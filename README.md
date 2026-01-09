@@ -1,7 +1,7 @@
 # itransition_course_work running locally
 ```bash
 # 1. Clone the repository
-git clone https://github.com/YOUR-USERNAME/inventory-manager.git
+git clone https://github.com/akhmetovamn/itransition_course_work.git
 cd inventory-manager
 
 # 2. Install dependencies
