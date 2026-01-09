@@ -1,24 +1,71 @@
-from flask import Flask, render_template_string
+from flask import Flask, render_template_string, request, jsonify, session, redirect, url_for
 import sqlite3
 from datetime import datetime
+import os
 
 app = Flask(__name__)
-app.secret_key = 'secret_key' #change when you are using the code
+app.secret_key = 'secret_keeey'  #you need to change when using
 DATABASE = 'inventory.db'
+USERS = {'user': '12345'}
 
-def get_inventories():
+def get_db():
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
+    return conn
+
+def get_inventories(search_query=''):
+    conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT title, category, item_count, owner FROM Inventory ORDER BY id")
+    if search_query:
+        q = f"%{search_query}%"
+        cur.execute(
+            "SELECT id, title, category, item_count, owner FROM Inventory "
+            "WHERE title LIKE ? OR category LIKE ? OR owner LIKE ? ORDER BY id",
+            (q, q, q)
+        )
+    else:
+        cur.execute("SELECT id, title, category, item_count, owner FROM Inventory ORDER BY id")
     rows = cur.fetchall()
     conn.close()
     return rows
 
-@app.route('/')
+def add_inventory(title, category, item_count, owner):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO Inventory (title, category, item_count, owner, created_at) VALUES (?, ?, ?, ?, ?)",
+        (title, category, item_count, owner, datetime.now().strftime('%Y-%m-%d'))
+    )
+    conn.commit()
+    conn.close()
+
+def delete_inventory(inventory_id):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM Inventory WHERE id = ?", (inventory_id,))
+    conn.commit()
+    conn.close()
+
+def update_inventory(inventory_id, title, category, item_count, owner):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE Inventory SET title = ?, category = ?, item_count = ?, owner = ? WHERE id = ?",
+        (title, category, item_count, owner, inventory_id)
+    )
+    conn.commit()
+    conn.close()
+
+@app.route('/', methods=['GET'])
 def index():
-    inventories = get_inventories()
-    html_template = """<!DOCTYPE html>
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    search_query = request.args.get('q', '')
+    inventories = get_inventories(search_query)
+
+    html = """
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -27,91 +74,217 @@ def index():
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <style>
-body{color:#0b2f26;font-family:"Inter",system-ui,-apple-system,sans-serif;background:#f8fafc}
-.hero{height:700px;background-image:url('https://thumbs.dreamstime.com/b/modern-laptop-analytics-dashboard-well-designed-office-space-showing-business-stylish-natural-lighting-green-plants-358652183.jpg');background-position:center bottom;background-size:cover;background-repeat:no-repeat;position:relative}
-.hero-overlay{position:absolute;inset:0;background:rgba(0,0,0,.55);z-index:1}
-.hero-content{position:relative;z-index:2}
-h2{font-size:3.5rem;font-weight:800;line-height:1.1;letter-spacing:-1px}
-h3{font-size:2.5rem;font-weight:800}
-h4{font-size:1.5rem;font-weight:700}
-p{font-size:1.125rem;line-height:1.7}
-.btn-green{background:#0f5d4a;color:#fff;padding:14px 32px;border-radius:16px;font-weight:600;transition:all .3s}
-.btn-green:hover{background:#187964;transform:translateY(-2px)}
-.card-nf{background:#fff;border-radius:22px;padding:32px;border:1px solid #daebe3;transition:all .3s}
-.card-nf:hover{transform:translateY(-8px);box-shadow:0 20px 40px rgba(15,93,74,.12)}
-.table-inv thead th{background:#f0f9f6;color:#0f5d4a;font-weight:700}
-.stats-number{font-size:4rem;font-weight:800;color:#0f5d4a}
+body {color:#0b2f26;font-family:"Inter",system-ui,sans-serif;background:#f8fafc;margin:0}
+header {background:#0f5d4a;color:white;position:sticky;top:0;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,.1)}
+.nav-container {max-width:1400px;margin:0 auto;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:80px}
+.logo {font-size:1.8rem;font-weight:800;letter-spacing:-1px}
+.search-bar {width:100%;max-width:420px;height:48px;padding:0 1.2rem;border-radius:24px;border:none;background:rgba(255,255,255,.15);color:white;font-size:1rem}
+.search-bar::placeholder {color:rgba(255,255,255,.7)}
+.btn-green {background:#187964;color:white;padding:12px 28px;border-radius:16px;font-weight:600;transition:all .3s}
+.btn-green:hover {background:#0f5d4a;transform:translateY(-2px)}
+.btn-outline {border:2px solid white;color:white;padding:12px 28px;border-radius:16px;font-weight:600;transition:all .3s}
+.btn-outline:hover {background:white;color:#0f5d4a}
+.table-inv thead th {background:#f0f9f6;color:#0f5d4a;font-weight:700}
+tr.new-row {animation:fadeIn 0.8s}
+@keyframes fadeIn {from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 </style>
 </head>
 <body>
 <?php include "header.php";?>
-<section class="hero w-full flex items-center justify-center text-center">
-<div class="hero-overlay"></div>
-<div class="hero-content relative z-10 px-6 max-w-5xl">
-<h2 class="text-white mb-6 drop-shadow-lg">Smart Inventory Management</h2>
-<p class="text-white text-xl mb-10 drop-shadow-md max-w-3xl mx-auto">Create, track and manage any inventory — equipment, books, documents — with custom fields and unique IDs.</p>
-<div class="flex flex-wrap gap-5 justify-center">
-<a href="#"><button class="btn-green">Create New Inventory</button></a>
-<a href="#"><button class="btn-green bg-transparent border-2 border-white hover:bg-white hover:text-green-900">Explore Public Inventories</button></a>
+<div class="modal fade" id="newModal" tabindex="-1">
+<div class="modal-dialog modal-dialog-centered">
+<div class="modal-content rounded-3xl">
+<div class="modal-header bg-green-50"><h5 class="modal-title">New Inventory</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body px-5 py-4">
+<form id="newForm">
+<div class="mb-3"><input type="text" class="form-control" id="title" placeholder="Title" required></div>
+<div class="mb-3">
+<select class="form-select" id="category" required>
+<option value="Equipment">Equipment</option>
+<option value="Book">Book</option>
+<option value="Furniture">Furniture</option>
+<option value="Other">Other</option>
+</select>
+</div>
+<div class="mb-3"><input type="number" class="form-control" id="item_count" min="0" value="0" required></div>
+<div class="mb-3"><input type="text" class="form-control" id="owner" value="Amina" required></div>
+<button type="submit" class="btn-green w-100 py-3">Create</button>
+</form>
 </div>
 </div>
-</section>
-<section class="bg-green-50 px-6 py-20 lg:px-20">
-<div class="max-w-6xl mx-auto text-center">
-<h3 class="mb-16">Why Choose Inventory Manager?</h3>
-<div class="grid grid-cols-1 md:grid-cols-4 gap-8">
-<div class="card-nf"><div class="text-green-700 text-5xl mb-6"><i class="fas fa-boxes-stacked"></i></div><h4>Flexible Structure</h4><p class="mt-4 text-gray-700">Custom fields & ID formats for any type of inventory.</p></div>
-<div class="card-nf"><div class="text-green-700 text-5xl mb-6"><i class="fas fa-users"></i></div><h4>Team Access</h4><p class="mt-4 text-gray-700">Granular permissions — public, private or selected users.</p></div>
-<div class="card-nf"><div class="text-green-700 text-5xl mb-6"><i class="fas fa-chart-line"></i></div><h4>Real-time Stats</h4><p class="mt-4 text-gray-700">Counts, averages, trends — always up to date.</p></div>
-<div class="card-nf"><div class="text-green-700 text-5xl mb-6"><i class="fas fa-lock"></i></div><h4>Secure & Simple</h4><p class="mt-4 text-gray-700">Local-first, easy to host, full control.</p></div>
 </div>
 </div>
-</section>
-<section class="bg-white px-6 py-20 lg:px-20">
-<div class="max-w-6xl mx-auto text-center">
-<h3 class="mb-16">Platform at a Glance</h3>
-<div class="grid grid-cols-2 md:grid-cols-4 gap-12">
-<div><p class="stats-number">148</p><p class="text-lg text-gray-700 mt-2">Inventories</p></div>
-<div><p class="stats-number">4.7k</p><p class="text-lg text-gray-700 mt-2">Items Tracked</p></div>
-<div><p class="stats-number">24/7</p><p class="text-lg text-gray-700 mt-2">Availability</p></div>
-<div><p class="stats-number">5+</p><p class="text-lg text-gray-700 mt-2">Categories</p></div>
-</div>
-</div>
-</section>
-<section class="bg-green-50 px-6 py-20 lg:px-20">
+
+<section class="bg-green-50 px-6 py-16">
 <div class="max-w-6xl mx-auto">
-<div class="flex flex-col sm:flex-row justify-between items-center mb-10">
-<h3 class="text-center sm:text-left">Your Inventories</h3>
-<button class="btn-green mt-4 sm:mt-0">+ Add New Inventory</button>
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+<h3 class="m-0">Your Inventories</h3>
+<div id="tableToolbar" class="d-none">
+<button class="btn btn-sm btn-outline-primary me-2" id="editSelected">Edit Selected</button>
+<button class="btn btn-sm btn-danger" id="deleteSelected">Delete Selected</button>
 </div>
-<div class="bg-white rounded-2xl shadow-lg overflow-hidden border border-green-100">
-<table class="table-inv w-full">
-<thead><tr><th class="py-5 px-8 text-left">Title</th><th class="py-5 px-8 text-left">Category</th><th class="py-5 px-8 text-left">Items</th><th class="py-5 px-8 text-left">Owner</th></tr></thead>
+</div>
+
+<div class="bg-white rounded-2xl shadow overflow-hidden border border-green-100">
+<table class="table-inv w-full" id="inventoryTable">
+<thead>
+<tr>
+<th class="py-4 px-6 text-center"><input type="checkbox" id="selectAll"></th>
+<th class="py-4 px-6">Title</th>
+<th class="py-4 px-6">Category</th>
+<th class="py-4 px-6">Items</th>
+<th class="py-4 px-6">Owner</th>
+</tr>
+</thead>
 <tbody>
 {% if inventories %}
 {% for inv in inventories %}
-<tr class="border-t border-green-100 hover:bg-green-50 transition">
-<td class="py-6 px-8 font-medium">{{ inv['title'] }}</td>
-<td class="py-6 px-8 text-gray-700">{{ inv['category'] }}</td>
-<td class="py-6 px-8 text-gray-700">{{ inv['item_count'] }}</td>
-<td class="py-6 px-8 text-gray-700">{{ inv['owner'] }}</td>
+<tr data-id="{{ inv['id'] }}">
+<td class="py-4 px-6 text-center"><input type="checkbox" class="row-checkbox"></td>
+<td class="py-4 px-6">{{ inv['title'] }}</td>
+<td class="py-4 px-6">{{ inv['category'] }}</td>
+<td class="py-4 px-6">{{ inv['item_count'] }}</td>
+<td class="py-4 px-6">{{ inv['owner'] }}</td>
 </tr>
 {% endfor %}
 {% else %}
-<tr><td colspan="4" class="py-20 text-center text-gray-600">No inventories yet. Create your first one!</td></tr>
+<tr><td colspan="5" class="py-10 text-center text-gray-600">No inventories yet</td></tr>
 {% endif %}
 </tbody>
 </table>
 </div>
 </div>
 </section>
-<footer class="bg-green-900 text-white py-12 text-center">
-<p class="text-lg">© {{ current_year }} Inventory Manager • Pavlodar, Kazakhstan</p>
-</footer>
+
+<script>
+function updateToolbar(){
+const count=document.querySelectorAll('.row-checkbox:checked').length;
+document.getElementById('tableToolbar').classList.toggle('d-none',count===0);
+document.getElementById('selectAll').checked=document.querySelectorAll('.row-checkbox').length===count&&count>0;
+}
+
+document.getElementById('selectAll')?.addEventListener('change',e=>{
+document.querySelectorAll('.row-checkbox').forEach(chk=>chk.checked=e.target.checked);
+updateToolbar();
+});
+
+document.querySelectorAll('.row-checkbox').forEach(chk=>{
+chk.addEventListener('change',updateToolbar);
+});
+
+document.getElementById('newForm')?.addEventListener('submit',e=>{
+e.preventDefault();
+const data={
+title:document.getElementById('title').value,
+category:document.getElementById('category').value,
+item_count:document.getElementById('item_count').value,
+owner:document.getElementById('owner').value
+};
+fetch('/add_inventory',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
+.then(r=>r.json()).then(res=>{if(res.success)location.reload()});
+});
+
+document.getElementById('deleteSelected')?.addEventListener('click',()=>{
+if(!confirm('Delete selected inventories?'))return;
+const ids=Array.from(document.querySelectorAll('.row-checkbox:checked'))
+.map(chk=>chk.closest('tr').dataset.id);
+fetch('/delete_batch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids})})
+.then(()=>location.reload());
+});
+
+document.getElementById('editSelected')?.addEventListener('click',()=>{
+const checked=document.querySelector('.row-checkbox:checked');
+if(!checked)return alert('Select one inventory to edit');
+const row=checked.closest('tr');
+const id=row.dataset.id;
+const title=row.children[2].textContent;
+const category=row.children[3].textContent;
+const count=row.children[4].textContent;
+const owner=row.children[5].textContent;
+
+const newTitle=prompt('Edit Title:',title);
+if(newTitle===null)return;
+const newCategory=prompt('Edit Category:',category)||category;
+const newCount=prompt('Edit Item Count:',count)||count;
+const newOwner=prompt('Edit Owner:',owner)||owner;
+
+fetch(`/update_inventory/${id}`,{
+method:'PUT',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({title:newTitle,category:newCategory,item_count:newCount,owner:newOwner})
+}).then(()=>location.reload());
+});
+</script>
 </body>
-</html>"""
-    return render_template_string(html_template, inventories=inventories, current_year=datetime.now().year)
+</html>
+    """
+    return render_template_string(html, inventories=inventories, search_query=search_query)
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        if username in USERS and USERS[username] == password:
+            session['logged_in'] = True
+            return redirect(url_for('index'))
+    return """
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-5">
+                <div class="card shadow">
+                    <div class="card-body p-5">
+                        <h2 class="text-center mb-4">Login</h2>
+                        <form method="post">
+                            <div class="mb-3"><input name="username" class="form-control" placeholder="Username" required autofocus></div>
+                            <div class="mb-4"><input type="password" name="password" class="form-control" placeholder="Password" required></div>
+                            <button type="submit" class="btn btn-success w-100">Login</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    """
+
+@app.route('/logout')
+def logout():
+    session.pop('logged_in', None)
+    return redirect(url_for('login'))
+
+@app.route('/add_inventory', methods=['POST'])
+def add_api():
+    data = request.json
+    add_inventory(data['title'], data['category'], int(data['item_count']), data['owner'])
+    return jsonify({'success': True})
+
+@app.route('/delete_batch', methods=['POST'])
+def delete_batch():
+    data = request.json
+    for inventory_id in data.get('ids', []):
+        delete_inventory(int(inventory_id))
+    return jsonify({'success': True})
+
+@app.route('/update_inventory/<int:id>', methods=['PUT'])
+def update_api(id):
+    data = request.json
+    update_inventory(id, data['title'], data['category'], int(data['item_count']), data['owner'])
+    return jsonify({'success': True})
 
 if __name__ == '__main__':
+    if not os.path.exists(DATABASE):
+        conn = sqlite3.connect(DATABASE)
+        conn.execute("""
+        CREATE TABLE Inventory (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            category TEXT NOT NULL,
+            item_count INTEGER DEFAULT 0,
+            owner TEXT NOT NULL,
+            created_at TEXT
+        )
+        """)
+        conn.close()
     app.run(debug=True, port=5000)
