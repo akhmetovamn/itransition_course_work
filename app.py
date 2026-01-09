@@ -3,7 +3,6 @@ import sqlite3
 from datetime import datetime
 
 app = Flask(__name__)
-
 DATABASE = 'inventory.db'
 
 def get_inventories():
@@ -18,110 +17,99 @@ def get_inventories():
 @app.route('/')
 def index():
     inventories = get_inventories()
-    
-    html_template = """
-<!DOCTYPE html>
-<html lang="en" class="h-full bg-gray-100">
+    html_template = """<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Inventory Manager</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inventory Manager</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{color:#0b2f26;font-family:"Inter",system-ui,-apple-system,sans-serif;background:#f8fafc}
+.hero{height:700px;background-image:url('https://thumbs.dreamstime.com/b/modern-laptop-analytics-dashboard-well-designed-office-space-showing-business-stylish-natural-lighting-green-plants-358652183.jpg');background-position:center bottom;background-size:cover;background-repeat:no-repeat;position:relative}
+.hero-overlay{position:absolute;inset:0;background:rgba(0,0,0,.55);z-index:1}
+.hero-content{position:relative;z-index:2}
+h2{font-size:3.5rem;font-weight:800;line-height:1.1;letter-spacing:-1px}
+h3{font-size:2.5rem;font-weight:800}
+h4{font-size:1.5rem;font-weight:700}
+p{font-size:1.125rem;line-height:1.7}
+.btn-green{background:#0f5d4a;color:#fff;padding:14px 32px;border-radius:16px;font-weight:600;transition:all .3s}
+.btn-green:hover{background:#187964;transform:translateY(-2px)}
+.card-nf{background:#fff;border-radius:22px;padding:32px;border:1px solid #daebe3;transition:all .3s}
+.card-nf:hover{transform:translateY(-8px);box-shadow:0 20px 40px rgba(15,93,74,.12)}
+.table-inv thead th{background:#f0f9f6;color:#0f5d4a;font-weight:700}
+.stats-number{font-size:4rem;font-weight:800;color:#0f5d4a}
+</style>
 </head>
-<body class="h-full flex flex-col">
-
-  <header class="bg-white shadow-sm">
-    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-      <h1 class="text-xl font-bold">Inventory Manager</h1>
-      <div class="flex-1 max-w-md mx-4">
-        <div class="relative">
-          <input type="search" placeholder="Search inventories, items..." 
-                 class="w-full pl-9 pr-3 py-2 border rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
-        </div>
-      </div>
-      <div class="flex items-center gap-3">
-        <span class="text-gray-700 font-medium">Hello, Amina</span>
-        <a href="#" class="text-gray-600 hover:text-gray-900">Logout</a>
-      </div>
-    </div>
-  </header>
-
-  <main class="flex-1 max-w-7xl mx-auto w-full px-4 py-6">
-    <div class="flex justify-between items-center mb-4">
-      <h2 class="text-xl font-bold">All Inventories</h2>
-      <button class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center gap-2">
-        <i class="fas fa-plus"></i> New Inventory
-      </button>
-    </div>
-
-    <div class="bg-white shadow rounded-lg overflow-hidden">
-      <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
-          <tr>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Owner</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-200">
-          {% if inventories %}
-            {% for inv in inventories %}
-            <tr class="hover:bg-gray-50 cursor-pointer">
-              <td class="px-4 py-3 text-sm font-medium">{{ inv['title'] }}</td>
-              <td class="px-4 py-3 text-sm text-gray-500">{{ inv['category'] }}</td>
-              <td class="px-4 py-3 text-sm text-gray-500">{{ inv['item_count'] }}</td>
-              <td class="px-4 py-3 text-sm text-gray-500">{{ inv['owner'] }}</td>
-            </tr>
-            {% endfor %}
-          {% else %}
-            <tr>
-              <td colspan="4" class="px-4 py-8 text-center text-gray-500">No inventories found.</td>
-            </tr>
-          {% endif %}
-        </tbody>
-      </table>
-    </div>
-
-    <div class="mt-12">
-      <h3 class="text-lg font-semibold mb-6 text-center">Popular Use Cases</h3>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
-        <div class="text-center">
-          <img src="https://www.shutterstock.com/image-photo/modern-laptop-showcasing-data-reports-260nw-2695314115.jpg" alt="Office Equipment" class="mx-auto rounded-lg shadow-md object-cover h-48 w-full">
-          <p class="mt-3 font-medium">Office Equipment</p>
-        </div>
-        <div class="text-center">
-          <img src="https://dontyoushushme.com/wp-content/uploads/2022/02/20180316_131943508_ios.jpg" alt="Library Books" class="mx-auto rounded-lg shadow-md object-cover h-48 w-full">
-          <p class="mt-3 font-medium">Library Books</p>
-        </div>
-        <div class="text-center">
-          <img src="https://images2.imgix.net/p4dbimg/751/images/23538-1.jpg?fit=fill&bg=FFFFFF&trim=color&trimtol=15&trimcolor=FFFFFF&w=1024&h=768&fm=pjpg&auto=compress" alt="Office Furniture" class="mx-auto rounded-lg shadow-md object-cover h-48 w-full">
-          <p class="mt-3 font-medium">Office Furniture</p>
-        </div>
-        <div class="text-center">
-          <img src="https://www.laserfiche.com/wp-content/uploads/2023/04/transparent-records-management.png" alt="HR Documents" class="mx-auto rounded-lg shadow-md object-cover h-48 w-full">
-          <p class="mt-3 font-medium">HR Documents</p>
-        </div>
-      </div>
-    </div>
-  </main>
-
-  <footer class="bg-white border-t py-4 mt-auto">
-    <div class="max-w-7xl mx-auto px-4 text-center text-sm text-gray-600">
-      © 2026 Inventory Manager • Pavlodar, Kazakhstan
-    </div>
-  </footer>
-
+<body>
+<section class="hero w-full flex items-center justify-center text-center">
+<div class="hero-overlay"></div>
+<div class="hero-content relative z-10 px-6 max-w-5xl">
+<h2 class="text-white mb-6 drop-shadow-lg">Smart Inventory Management</h2>
+<p class="text-white text-xl mb-10 drop-shadow-md max-w-3xl mx-auto">Create, track and manage any inventory — equipment, books, documents — with custom fields and unique IDs.</p>
+<div class="flex flex-wrap gap-5 justify-center">
+<a href="#"><button class="btn-green">Create New Inventory</button></a>
+<a href="#"><button class="btn-green bg-transparent border-2 border-white hover:bg-white hover:text-green-900">Explore Public Inventories</button></a>
+</div>
+</div>
+</section>
+<section class="bg-green-50 px-6 py-20 lg:px-20">
+<div class="max-w-6xl mx-auto text-center">
+<h3 class="mb-16">Why Choose Inventory Manager?</h3>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+<div class="card-nf"><div class="text-green-700 text-5xl mb-6"><i class="fas fa-boxes-stacked"></i></div><h4>Flexible Structure</h4><p class="mt-4 text-gray-700">Custom fields & ID formats for any type of inventory.</p></div>
+<div class="card-nf"><div class="text-green-700 text-5xl mb-6"><i class="fas fa-users"></i></div><h4>Team Access</h4><p class="mt-4 text-gray-700">Granular permissions — public, private or selected users.</p></div>
+<div class="card-nf"><div class="text-green-700 text-5xl mb-6"><i class="fas fa-chart-line"></i></div><h4>Real-time Stats</h4><p class="mt-4 text-gray-700">Counts, averages, trends — always up to date.</p></div>
+<div class="card-nf"><div class="text-green-700 text-5xl mb-6"><i class="fas fa-lock"></i></div><h4>Secure & Simple</h4><p class="mt-4 text-gray-700">Local-first, easy to host, full control.</p></div>
+</div>
+</div>
+</section>
+<section class="bg-white px-6 py-20 lg:px-20">
+<div class="max-w-6xl mx-auto text-center">
+<h3 class="mb-16">Platform at a Glance</h3>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-12">
+<div><p class="stats-number">148</p><p class="text-lg text-gray-700 mt-2">Inventories</p></div>
+<div><p class="stats-number">4.7k</p><p class="text-lg text-gray-700 mt-2">Items Tracked</p></div>
+<div><p class="stats-number">24/7</p><p class="text-lg text-gray-700 mt-2">Availability</p></div>
+<div><p class="stats-number">5+</p><p class="text-lg text-gray-700 mt-2">Categories</p></div>
+</div>
+</div>
+</section>
+<section class="bg-green-50 px-6 py-20 lg:px-20">
+<div class="max-w-6xl mx-auto">
+<div class="flex flex-col sm:flex-row justify-between items-center mb-10">
+<h3 class="text-center sm:text-left">Your Inventories</h3>
+<button class="btn-green mt-4 sm:mt-0">+ Add New Inventory</button>
+</div>
+<div class="bg-white rounded-2xl shadow-lg overflow-hidden border border-green-100">
+<table class="table-inv w-full">
+<thead><tr><th class="py-5 px-8 text-left">Title</th><th class="py-5 px-8 text-left">Category</th><th class="py-5 px-8 text-left">Items</th><th class="py-5 px-8 text-left">Owner</th></tr></thead>
+<tbody>
+{% if inventories %}
+{% for inv in inventories %}
+<tr class="border-t border-green-100 hover:bg-green-50 transition">
+<td class="py-6 px-8 font-medium">{{ inv['title'] }}</td>
+<td class="py-6 px-8 text-gray-700">{{ inv['category'] }}</td>
+<td class="py-6 px-8 text-gray-700">{{ inv['item_count'] }}</td>
+<td class="py-6 px-8 text-gray-700">{{ inv['owner'] }}</td>
+</tr>
+{% endfor %}
+{% else %}
+<tr><td colspan="4" class="py-20 text-center text-gray-600">No inventories yet. Create your first one!</td></tr>
+{% endif %}
+</tbody>
+</table>
+</div>
+</div>
+</section>
+<footer class="bg-green-900 text-white py-12 text-center">
+<p class="text-lg">© {{ current_year }} Inventory Manager • Pavlodar, Kazakhstan</p>
+</footer>
 </body>
-</html>
-    """
-    
-    return render_template_string(
-        html_template,
-        inventories=inventories
-    )
+</html>"""
+    return render_template_string(html_template, inventories=inventories, current_year=datetime.now().year)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
