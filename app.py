@@ -3,6 +3,7 @@ import sqlite3
 from datetime import datetime
 
 app = Flask(__name__)
+app.secret_key = 'secret_key' #change when you are using the code
 DATABASE = 'inventory.db'
 
 def get_inventories():
