@@ -44,6 +44,7 @@ p{font-size:1.125rem;line-height:1.7}
 </style>
 </head>
 <body>
+<?php include "header.php";?>
 <section class="hero w-full flex items-center justify-center text-center">
 <div class="hero-overlay"></div>
 <div class="hero-content relative z-10 px-6 max-w-5xl">
