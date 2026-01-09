@@ -15,7 +15,7 @@ function esc($s) {
 <header class="fixed top-0 w-full z-50 bg-green-50/90 backdrop-blur-md shadow-sm border-b border-green-100">
     <div class="max-w-6xl mx-auto flex items-center justify-between px-6 py-3">
         <a href="index.php" class="text-2xl font-extrabold text-green-700">
-            Oqu <span class="text-green-800">Easy</span>
+            Inventory <span class="text-green-800">Management</span>
         </a>
         <button id="menuToggle" class="text-green-700 lg:hidden">
             <i class="fa-solid fa-bars text-2xl"></i>
